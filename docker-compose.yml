@@ -1,0 +1,144 @@
+version: '3.4'
+services:
+  es-cdr01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.9.3
+    container_name: es-cdr01
+    restart: always
+    environment:
+      - node.name=es-cdr01
+      - cluster.name=cucm-cdr
+      - discovery.seed_hosts=es-cdr02,es-cdr03
+      - cluster.initial_master_nodes=es-cdr01,es-cdr02,es-cdr03
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms128m -Xmx128m"
+      - TZ=Europe/Moscow
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - data01:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+    networks:
+      - elastic
+  es-cdr02:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.9.3
+    container_name: es-cdr02
+    restart: always
+    environment:
+      - node.name=es-cdr02
+      - cluster.name=cucm-cdr
+      - discovery.seed_hosts=es-cdr01,es-cdr03
+      - cluster.initial_master_nodes=es-cdr01,es-cdr02,es-cdr03
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms128m -Xmx128m"
+      - TZ=Europe/Moscow
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - data02:/usr/share/elasticsearch/data
+    networks:
+      - elastic
+  es-cdr03:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.9.3
+    container_name: es-cdr03
+    restart: always
+    environment:
+      - node.name=es-cdr03
+      - cluster.name=cucm-cdr
+      - discovery.seed_hosts=es-cdr01,es-cdr02
+      - cluster.initial_master_nodes=es-cdr01,es-cdr02,es-cdr03
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms128m -Xmx128m"
+      - TZ=Europe/Moscow
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - data03:/usr/share/elasticsearch/data
+    networks:
+      - elastic
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.9.3
+    container_name: logstash
+    restart: always
+    environment:
+      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+      LS_OPEN_FILES: "16384"
+      XPACK_MONITORING_ENABLED: "false"
+      TZ: "Europe/Moscow"
+    networks:
+      - elastic
+    depends_on:
+      - es-cdr01
+      - es-cdr02
+      - es-cdr03
+    volumes:
+      - type: bind
+        source: ./logstash/cucm.conf
+        target: /usr/share/logstash/pipeline/cucm.conf
+        read_only: true
+      - type: bind
+        source: ./logstash/output.conf
+        target: /usr/share/logstash/pipeline/output.conf
+        read_only: true
+      - type: bind
+        source: ./cdr 
+        target: /var/cdr 
+        read_only: true
+    networks:
+      - elastic
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.9.3
+    container_name: kibana
+    restart: always
+    environment:
+      - ELASTICSEARCH_HOSTS=http://es-cdr01:9200
+      - TZ=Europe/Moscow
+    ports:
+      - 5601:5601
+    networks:
+      - elastic
+    depends_on:
+      - es-cdr01
+      - es-cdr02
+      - es-cdr03
+  grafana:
+    image: docker.io/grafana/grafana
+    container_name: grafana
+    restart: always
+    volumes:
+      - data-grafana:/var/lib/grafana
+    ports:
+      - 3000:3000
+    environment:
+      - TZ=Europe/Moscow
+    networks:
+      - elastic
+
+volumes:
+  data01:
+    driver: local
+  data02:
+    driver: local
+  data03:
+    driver: local
+  data-grafana:
+    driver: local
+
+networks:
+  elastic:
+    driver: bridge
