@@ -88,15 +88,11 @@ services:
       - es-cdr03
     volumes:
       - type: bind
-        source: ./logstash/cucm.conf
-        target: /usr/share/logstash/pipeline/cucm.conf
+        source: ./logstash/cucm-cdr.conf
+        target: /usr/share/logstash/pipeline/cucm-cdr.conf
         read_only: true
       - type: bind
-        source: ./logstash/output.conf
-        target: /usr/share/logstash/pipeline/output.conf
-        read_only: true
-      - type: bind
-        source: ./cdr 
+        source: ./cdr-sample
         target: /var/cdr 
         read_only: true
     networks:
